@@ -38,6 +38,7 @@ public class UltimateLitShaderGUI : ShaderGUI
         
         MaterialProperty albedoMap = FindProperty("_BaseMap", properties, false);
         MaterialProperty albedoColor = FindProperty("_BaseColor", properties, false);
+		MaterialProperty albedoContrast = FindProperty("_Albedo_Contrast", properties, false);
         MaterialProperty normalMap = FindProperty("_Normal_Map", properties, false);
         MaterialProperty normalStrength = FindProperty("_Normal_Strength", properties, false);
         MaterialProperty emissionMap = FindProperty("_EmissionMap", properties, false);
@@ -115,7 +116,7 @@ public class UltimateLitShaderGUI : ShaderGUI
 
         EditorGUILayout.Space();
 
-        DrawMainSurfaceInputs(materialEditor, materials, albedoMap, albedoColor, normalMap, normalStrength, emissionMap,
+        DrawMainSurfaceInputs(materialEditor, materials, albedoMap, albedoColor, albedoContrast, normalMap, normalStrength, emissionMap,
             emissiveColor, heightMap, heightStrength, maskMap, metallicMap, metallicChannel, metallicStrength, occlusionMap, 
             occlusionChannel, occlusionStrength, detailBlendMap, detailBlendChannel, detailBlendOpacity, useVertexColorMask, 
             roughnessMap, roughnessChannel, roughnessStrength, invertRoughnessMap, tiling, offset);
@@ -380,14 +381,15 @@ public class UltimateLitShaderGUI : ShaderGUI
     }
 
     private void DrawMainSurfaceInputs(MaterialEditor materialEditor, Material[] materials, 
-        MaterialProperty albedoMap, MaterialProperty albedoColor, MaterialProperty normalMap, 
-        MaterialProperty normalStrength, MaterialProperty emissionMap, MaterialProperty emissiveColor, 
-        MaterialProperty heightMap, MaterialProperty heightStrength, MaterialProperty maskMap, 
-        MaterialProperty metallicMap, MaterialProperty metallicChannel, MaterialProperty metallicStrength, 
-        MaterialProperty occlusionMap, MaterialProperty occlusionChannel, MaterialProperty occlusionStrength, 
-        MaterialProperty detailBlendMask, MaterialProperty detailBlendChannel, MaterialProperty detailBlendStrength,
-        MaterialProperty useVertexColorMask, MaterialProperty roughnessMap, MaterialProperty roughnessChannel, 
-        MaterialProperty roughnessStrength, MaterialProperty invertRoughness, MaterialProperty tiling, MaterialProperty offset)
+        MaterialProperty albedoMap, MaterialProperty albedoColor, MaterialProperty albedoContrast, 
+		MaterialProperty normalMap, MaterialProperty normalStrength, MaterialProperty emissionMap, 
+		MaterialProperty emissiveColor, MaterialProperty heightMap, MaterialProperty heightStrength, 
+		MaterialProperty maskMap, MaterialProperty metallicMap, MaterialProperty metallicChannel, 
+		MaterialProperty metallicStrength, MaterialProperty occlusionMap, MaterialProperty occlusionChannel, 
+		MaterialProperty occlusionStrength, MaterialProperty detailBlendMask, MaterialProperty detailBlendChannel, 
+		MaterialProperty detailBlendStrength, MaterialProperty useVertexColorMask, MaterialProperty roughnessMap, 
+		MaterialProperty roughnessChannel, MaterialProperty roughnessStrength, MaterialProperty invertRoughness, 
+		MaterialProperty tiling, MaterialProperty offset)
     {
         GUILayout.Label("Surface Inputs", EditorStyles.boldLabel);
         
@@ -395,6 +397,13 @@ public class UltimateLitShaderGUI : ShaderGUI
         {
             GUIContent albedoContent = new GUIContent("Albedo Map", "Albedo map and color");
             materialEditor.TexturePropertySingleLine(albedoContent, albedoMap, albedoColor);
+
+            if (albedoContrast != null)
+            {
+                EditorGUI.indentLevel += 2;
+                materialEditor.ShaderProperty(albedoContrast, "Contrast");
+                EditorGUI.indentLevel -= 2;
+            }
         }
         if (normalMap != null && normalStrength != null)
         {
