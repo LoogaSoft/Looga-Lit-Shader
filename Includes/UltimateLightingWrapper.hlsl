@@ -14,13 +14,10 @@
 #pragma multi_compile _ _LIGHT_COOKIES
 
 //SSAO and reflections
-//#pragma multi_compile _ _SCREEN_SPACE_OCCLUSION
 #pragma multi_compile _ _REFLECTION_PROBE_BOX_PROJECTION
 #pragma multi_compile _ _REFLECTION_PROBE_BLENDING
 
 //baked GI
-//#pragma multi_compile _ LIGHTMAP_ON
-//#pragma multi_compile _ DIRLIGHTMAP_COMBINED
 #pragma multi_compile _ DYNAMICLIGHTMAP_ON
 #endif
 
