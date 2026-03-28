@@ -1,13 +1,12 @@
 {
-  "displayName": "Looga Lit Shader",
-  "name": "com.loogasoft.loogalitshader",
-  "description": "A feature-packed uber shader with AAA level lighting and shading techniques",
-  "version": "0.1.0",
+  "displayName": "Looga Lighting",
+  "name": "com.loogasoft.loogalighting",
+  "description": "Overrides URP's deferred lighting with AAA level lighting and shading techniques",
+  "version": "1.0.0",
   "author": {
     "name": "LoogaSoft"
   },
   "dependencies": {
-    "com.unity.render-pipelines.universal": "17.0.0",
-    "com.unity.shadergraph": "17.0.0"
+    "com.unity.render-pipelines.universal": "17.0.0"
   }
 }
