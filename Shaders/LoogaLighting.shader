@@ -31,7 +31,7 @@ Shader "Hidden/LoogaSoft/LoogaLighting"
             
             #pragma shader_feature_local _ _SOURCE2_LIGHTING
             #pragma shader_feature_local _ _USE_GTBN
-
+            
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
@@ -242,6 +242,7 @@ Shader "Hidden/LoogaSoft/LoogaLighting"
                 #endif
 
                 finalColor += appliedIndirectSpecular;
+
                 finalColor += emission * occlusion;
                 
                 return half4(finalColor, 1.0);

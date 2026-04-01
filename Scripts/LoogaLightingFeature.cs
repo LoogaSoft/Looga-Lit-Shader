@@ -119,7 +119,7 @@ namespace LoogaSoft.Lighting
                 }
                 else
                     _customLightingMaterial.DisableKeyword("_USE_GTBN");
-                
+
                 renderer.EnqueuePass(_customLightingPass);
             }
         }
