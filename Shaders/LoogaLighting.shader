@@ -243,7 +243,7 @@ Shader "Hidden/LoogaSoft/LoogaLighting"
 
                 finalColor += appliedIndirectSpecular;
 
-                finalColor += emission * occlusion;
+                finalColor += emission;
                 
                 return half4(finalColor, 1.0);
             }
