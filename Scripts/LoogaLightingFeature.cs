@@ -20,8 +20,13 @@ namespace LoogaSoft.Lighting
         }
         
         public LightingModel activeLightingModel = LightingModel.DisneyBurley;
+        
+        public bool enableSSSS = true;
+        [Range(0.1f, 5.0f)] public float ssssScatterWidth = 2.0f;
+        public Color ssssColor = new Color(0.85f, 0.4f, 0.25f, 1.0f);
 
         private Material _customLightingMaterial;
+        private Material _ssssMaterial;
         private CustomLightingPass _customLightingPass;
         
         public override void Create()
@@ -59,12 +64,19 @@ namespace LoogaSoft.Lighting
                 }
             }
 
+            if (enableSSSS && (_ssssMaterial == null || _ssssMaterial.shader.name != "Hidden/LoogaSoft/SSSS"))
+            {
+                Shader ssssShader = Shader.Find("Hidden/LoogaSoft/SSSS");
+                if (ssssShader != null)
+                    _ssssMaterial = CoreUtils.CreateEngineMaterial(ssssShader);
+            }
+
             if (_customLightingMaterial != null)
             {
                 if (_customLightingPass == null)
-                    _customLightingPass = new CustomLightingPass(_customLightingMaterial);
+                    _customLightingPass = new CustomLightingPass(this);
                 else
-                    _customLightingPass.UpdateMaterial(_customLightingMaterial);
+                    _customLightingPass.UpdateMaterials(this);
             }
         }
 
@@ -87,6 +99,11 @@ namespace LoogaSoft.Lighting
                 CoreUtils.Destroy(_customLightingMaterial);
                 _customLightingMaterial = null;
             }
+            if (_ssssMaterial != null)
+            {
+                CoreUtils.Destroy(_ssssMaterial);
+                _ssssMaterial = null;
+            }
             
             _customLightingPass = null;
             base.Dispose(disposing);
@@ -94,7 +111,7 @@ namespace LoogaSoft.Lighting
 
         private class CustomLightingPass : ScriptableRenderPass
         {
-            private Material _lightingMaterial;
+            private LoogaLightingFeature _feature;
 
             private static readonly int[] ShaderGBufferIDs = {
                 Shader.PropertyToID("_GBuffer0"),
@@ -104,16 +121,18 @@ namespace LoogaSoft.Lighting
             };
             
             private static readonly int CameraDepthTextureID = Shader.PropertyToID("_CameraDepthTexture");
+            private static readonly int SSSSProfileTextureID = Shader.PropertyToID("_SSSSProfileTexture");
+            private static readonly ShaderTagId SSSSProfileTagId = new ShaderTagId("SSSSProfile");
 
-            public CustomLightingPass(Material material)
+            public CustomLightingPass(LoogaLightingFeature feature)
             {
-                _lightingMaterial = material;
+                _feature = feature;
                 renderPassEvent = RenderPassEvent.BeforeRenderingDeferredLights;
             }
 
-            public void UpdateMaterial(Material newMaterial)
+            public void UpdateMaterials(LoogaLightingFeature feature)
             {
-                _lightingMaterial = newMaterial;
+                _feature = feature;
             }
             
             private class LightingPassData
@@ -123,6 +142,18 @@ namespace LoogaSoft.Lighting
                 public TextureHandle depthTexture;
             }
             
+            private class SSSSPassData
+            {
+                public TextureHandle source;
+                public Material material;
+                public int passIndex;
+            }
+            
+            private class DrawProfileData
+            {
+                public RendererListHandle rendererList;
+            }
+
             private class BlitPassData
             {
                 public TextureHandle source;
@@ -133,14 +164,16 @@ namespace LoogaSoft.Lighting
                 UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
                 UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
   
-                if (_lightingMaterial == null) return;
+                if (_feature._customLightingMaterial == null) return;
                 
                 TextureHandle activeColor = resourceData.activeColorTexture;
                 TextureHandle hardwareDepth = resourceData.activeDepthTexture;
                 TextureHandle stencilTexture = resourceData.activeDepthTexture;
+                TextureHandle gbuffer3 = resourceData.gBuffer != null && resourceData.gBuffer.Length > 3 ? resourceData.gBuffer[3] : TextureHandle.nullHandle;
                 
                 RenderTextureDescriptor desc = cameraData.cameraTargetDescriptor;
                 desc.depthBufferBits = 0;
+                
                 TextureHandle tempLightingTarget = renderGraph.CreateTexture(new TextureDesc(desc)
                 {
                     name = "Looga Lighting Target",
@@ -149,9 +182,10 @@ namespace LoogaSoft.Lighting
                     clearColor = Color.clear
                 });
 
+                // 1. Lighting Evaluation Pass
                 using (var builder = renderGraph.AddRasterRenderPass<LightingPassData>("Looga Lighting Evaluation", out var passData))
                 {
-                    passData.material = _lightingMaterial;
+                    passData.material = _feature._customLightingMaterial;
                     passData.depthTexture = hardwareDepth;
 
                     TextureHandle[] currentGBuffers = resourceData.gBuffer;
@@ -194,6 +228,83 @@ namespace LoogaSoft.Lighting
                     });
                 }
 
+                TextureHandle ssssProfileTarget = TextureHandle.nullHandle;
+
+                // 2. Subsurface Scattering Passes (Ping-Pong)
+                if (_feature.enableSSSS && _feature._ssssMaterial != null && hardwareDepth.IsValid())
+                {
+                    ssssProfileTarget = renderGraph.CreateTexture(new TextureDesc(desc)
+                    {
+                        name = "SSSS Profile Target",
+                        colorFormat = UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_UNorm,
+                        clearBuffer = true,
+                        clearColor = Color.clear // Blank areas will have 0 width/color
+                    });
+
+                    using (var builder = renderGraph.AddRasterRenderPass<DrawProfileData>("Looga SSSS Profile Draw", out var passData))
+                    {
+                        builder.SetRenderAttachment(ssssProfileTarget, 0, AccessFlags.Write);
+                        builder.SetRenderAttachmentDepth(hardwareDepth, AccessFlags.Read); // For ZTest Equal execution
+
+                        UniversalRenderingData urpRenderingData = frameData.Get<UniversalRenderingData>();
+                        DrawingSettings drawingSettings = new DrawingSettings(SSSSProfileTagId, new SortingSettings(cameraData.camera));
+                        FilteringSettings filteringSettings = new FilteringSettings(RenderQueueRange.opaque);
+
+                        passData.rendererList = renderGraph.CreateRendererList(new RendererListParams(urpRenderingData.cullResults, drawingSettings, filteringSettings));
+                        builder.UseRendererList(passData.rendererList);
+
+                        builder.SetRenderFunc((DrawProfileData data, RasterGraphContext context) =>
+                        {
+                            context.cmd.DrawRendererList(data.rendererList);
+                        });
+                    }
+                    
+                    TextureHandle ssssPingPong = renderGraph.CreateTexture(new TextureDesc(desc) { name = "SSSS PingPong Target" });
+
+                    // Horizontal Blur (Temp Target -> Ping Pong)
+                    using (var builder = renderGraph.AddRasterRenderPass<SSSSPassData>("Looga SSSS Horizontal", out var passData))
+                    {
+                        passData.source = tempLightingTarget;
+                        passData.material = _feature._ssssMaterial;
+                        passData.passIndex = 0;
+
+                        builder.UseTexture(passData.source, AccessFlags.Read);
+                        builder.SetRenderAttachment(ssssPingPong, 0, AccessFlags.Write);
+                        builder.SetRenderAttachmentDepth(hardwareDepth, AccessFlags.Read);
+                        builder.UseTexture(ssssProfileTarget, AccessFlags.Read);
+                        
+                        builder.AllowGlobalStateModification(true);
+
+                        builder.SetRenderFunc((SSSSPassData data, RasterGraphContext context) =>
+                        {
+                            context.cmd.SetGlobalTexture(SSSSProfileTextureID, ssssProfileTarget);
+                            Blitter.BlitTexture(context.cmd, data.source, new Vector4(1, 1, 0, 0), data.material, data.passIndex);
+                        });
+                    }
+
+                    // Vertical Blur (Ping Pong -> Temp Target)
+                    using (var builder = renderGraph.AddRasterRenderPass<SSSSPassData>("Looga SSSS Vertical", out var passData))
+                    {
+                        passData.source = ssssPingPong;
+                        passData.material = _feature._ssssMaterial;
+                        passData.passIndex = 1;
+
+                        builder.UseTexture(passData.source, AccessFlags.Read);
+                        builder.SetRenderAttachment(tempLightingTarget, 0, AccessFlags.Write);
+                        builder.SetRenderAttachmentDepth(hardwareDepth, AccessFlags.Read);
+                        builder.UseTexture(ssssProfileTarget, AccessFlags.Read);
+                        
+                        builder.AllowGlobalStateModification(true);
+
+                        builder.SetRenderFunc((SSSSPassData data, RasterGraphContext context) =>
+                        {
+                            context.cmd.SetGlobalTexture(SSSSProfileTextureID, ssssProfileTarget);
+                            Blitter.BlitTexture(context.cmd, data.source, new Vector4(1, 1, 0, 0), data.material, data.passIndex);
+                        });
+                    }
+                }
+
+                // 3. Final Blit and Stencil Clear
                 using (var builder = renderGraph.AddRasterRenderPass<BlitPassData>("Looga Lighting Blit", out var passData))
                 {
                     passData.source = tempLightingTarget;
@@ -208,6 +319,8 @@ namespace LoogaSoft.Lighting
                     {
                         RasterCommandBuffer cmd = context.cmd;
                         Blitter.BlitTexture(cmd, data.source, new Vector4(1,1,0,0), 0.0f, false);
+                        
+                        // Clear the stencil so it doesn't interfere with URP's transparent/post-processing passes
                         cmd.ClearRenderTarget(RTClearFlags.Stencil, Color.clear, 1.0f, 0);
                     });
                 }
