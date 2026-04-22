@@ -62,4 +62,25 @@ float3 EvaluateSecondaryGGXLobe(float3 f0, float secondaryRoughness, float3 norm
     return specular * radiance * NoL * PI * lobeMix;
 }
 
+float3 EvaluateTransmission(float3 ssssColor, float scatterWidth, float3 lightDir, float3 viewDir, float3 normalWS, float3 lightRadiance, float shadowAttenuation)
+{
+    // If the light is hitting the front, we don't need backscatter
+    float NoL = dot(normalWS, lightDir);
+    if (NoL > 0.0) return 0.0; 
+
+    // Calculate how directly the camera is looking at the light source through the object
+    float3 H = lightDir + normalWS * 0.3; // Distort the normal slightly to wrap the light
+    float VdotH = saturate(dot(viewDir, -H));
+
+    // The thicker the scatter width, the tighter and brighter the transmission punch-through
+    float transmissionPower = lerp(2.0, 10.0, scatterWidth); 
+    float transmissionProfile = pow(VdotH, transmissionPower);
+    
+    // Scale the effect based on the scatter width and apply the physical SSSS color
+    float transmissionIntensity = scatterWidth * 0.5;
+
+    // Notice we include shadowAttenuation! If another tree is blocking the sun from behind, it won't transmit.
+    return ssssColor * transmissionProfile * transmissionIntensity * lightRadiance * shadowAttenuation;
+}
+
 #endif

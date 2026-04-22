@@ -3,18 +3,16 @@ using UnityEngine;
 
 namespace LoogaSoft.Lighting.Editor
 {
-    public class LoogaSkinShaderGUI : LoogaShaderGUIBase
+    public class LoogaGlassShaderGUI : LoogaShaderGUIBase
     {
         public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] properties)
         {
             Styles();
             DrawLoogaSoftHeader();
 
-            // Fetch Properties
             MaterialProperty baseMap = FindProperty("_BaseMap", properties);
             MaterialProperty baseColor = FindProperty("_BaseColor", properties);
             MaterialProperty normalMap = FindProperty("_NormalMap", properties);
-            MaterialProperty normalScale = FindProperty("_NormalScale", properties);
             
             MaterialProperty useMaskMap = FindProperty("_UseMaskMap", properties);
             MaterialProperty maskMap = FindProperty("_MaskMap", properties);
@@ -24,76 +22,52 @@ namespace LoogaSoft.Lighting.Editor
             MaterialProperty occlusionMap = FindProperty("_OcclusionMap", properties);
             MaterialProperty occlusionStrength = FindProperty("_OcclusionStrength", properties);
             
-            MaterialProperty emissionMap = FindProperty("_EmissionMap", properties);
-            MaterialProperty emissionColor = FindProperty("_EmissionColor", properties);
-            
             MaterialProperty smoothnessSource = FindProperty("_SmoothnessTextureChannel", properties);
-            MaterialProperty baseSmoothness = FindProperty("_BaseSmoothnessScale", properties);
+            MaterialProperty smoothness = FindProperty("_Smoothness", properties);
             
-            MaterialProperty cavityMap = FindProperty("_CavityMap", properties);
-            MaterialProperty lobeMix = FindProperty("_LobeMix", properties);
-            MaterialProperty secondarySmoothness = FindProperty("_SecondarySmoothness", properties);
-            
-            MaterialProperty ssssColor = FindProperty("_SubsurfaceColor", properties);
-            MaterialProperty ssssWidth = FindProperty("_ScatterWidth", properties);
+            MaterialProperty distortion = FindProperty("_Distortion", properties);
             
             MaterialProperty specHighlights = FindProperty("_SpecularHighlights", properties, false);
             MaterialProperty envReflections = FindProperty("_EnvironmentReflections", properties, false);
 
-            // 1. Surface Options Section
-            Section("Surface Options", "LoogaSkin_SurfaceOptions", true, () =>
+            Section("Surface Options", "LoogaGlass_SurfaceOptions", true, () =>
             {
-                materialEditor.TexturePropertySingleLine(new GUIContent("Base Map"), baseMap, baseColor);
-                materialEditor.TexturePropertySingleLine(new GUIContent("Normal Map"), normalMap, normalScale);
-                
+                materialEditor.TexturePropertySingleLine(new GUIContent("Dirt Map (RGB) Opacity (A)"), baseMap, baseColor);
+                EditorGUILayout.Space(2);
+                materialEditor.TexturePropertySingleLine(new GUIContent("Normal Map"), normalMap);
                 EditorGUILayout.Space(2);
                 
-                // Mask Map Toggle
+                // Mask Map Toggle Logic (Matching the Skin Shader)
                 materialEditor.ShaderProperty(useMaskMap, "Use Mask Map");
                 
                 if (useMaskMap.floatValue > 0.5f)
                 {
                     materialEditor.TexturePropertySingleLine(new GUIContent("Mask Map (M, AO, S)"), maskMap);
                     EditorGUI.indentLevel += 2;
-                    materialEditor.ShaderProperty(baseSmoothness, new GUIContent("Master Smoothness"));
+                    materialEditor.ShaderProperty(smoothness, new GUIContent("Master Smoothness"));
                     EditorGUI.indentLevel -= 2;
                 }
                 else
                 {
                     materialEditor.TexturePropertySingleLine(new GUIContent("Metallic Map"), metallicMap, metallic);
                     EditorGUI.indentLevel += 2;
-                    materialEditor.ShaderProperty(baseSmoothness, new GUIContent("Master Smoothness"));
+                    materialEditor.ShaderProperty(smoothness, new GUIContent("Master Smoothness"));
                     materialEditor.ShaderProperty(smoothnessSource, new GUIContent("Source"));
                     EditorGUI.indentLevel -= 2;
                     
                     materialEditor.TexturePropertySingleLine(new GUIContent("Occlusion Map"), occlusionMap, occlusionStrength);
                 }
-                
-                EditorGUILayout.Space(2);
-                materialEditor.TexturePropertySingleLine(new GUIContent("Emission Map"), emissionMap, emissionColor);
 
                 EditorGUILayout.Space();
                 materialEditor.TextureScaleOffsetProperty(baseMap);
             });
 
-            // 2. Dual Lobe Specular Section
-            Section("Dual Lobe Specular", "LoogaSkin_DualLobe", true, () =>
+            Section("Optical Properties", "LoogaGlass_OpticalProperties", true, () =>
             {
-                materialEditor.TexturePropertySingleLine(new GUIContent("Cavity/Lobe Mask (R)"), cavityMap, lobeMix);
-                EditorGUI.indentLevel += 2;
-                materialEditor.ShaderProperty(secondarySmoothness, new GUIContent("Secondary Smoothness"));
-                EditorGUI.indentLevel -= 2;
-            });
-            
-            // 3. Subsurface Scattering Section
-            Section("Subsurface Scattering", "LoogaSkin_SubsurfaceScattering", true, () =>
-            {
-                materialEditor.ShaderProperty(ssssColor, "Subsurface Color");
-                materialEditor.ShaderProperty(ssssWidth, "Scatter Width");
+                materialEditor.ShaderProperty(distortion, "Refraction Index (IOR)");
             });
 
-            // 4. Advanced Options Section
-            Section("Advanced Options", "LoogaSkin_AdvancedOptions", false, () =>
+            Section("Advanced Options", "LoogaGlass_AdvancedOptions", false, () =>
             {
                 if (specHighlights != null) materialEditor.ShaderProperty(specHighlights, "Specular Highlights");
                 if (envReflections != null) materialEditor.ShaderProperty(envReflections, "Environment Reflections");

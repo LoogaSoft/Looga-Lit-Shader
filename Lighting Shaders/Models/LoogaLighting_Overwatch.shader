@@ -1,11 +1,11 @@
-Shader "Hidden/LoogaSoft/Lighting/Arkane"
+Shader "Hidden/LoogaSoft/Lighting/Overwatch"
 {
     SubShader
     {
         Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" }
         Pass
         {
-            Name "Looga Deferred Lighting - Arkane"
+            Name "Looga Deferred Lighting - Overwatch"
             ZWrite Off ZTest Always ZClip False Cull Off
             
             HLSLPROGRAM
@@ -17,39 +17,36 @@ Shader "Hidden/LoogaSoft/Lighting/Arkane"
             #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
             #pragma multi_compile _ _USE_GTBN
             
-            #include "LoogaLightingHelpers.hlsl"
+            #include "Packages/com.loogasoft.loogalighting/Lighting Shaders/Includes/LoogaLightingHelpers.hlsl"
 
             float3 EvaluateLighting(float3 diffuseColor, float3 f0, float perceptualRoughness, float3 normalWS, float occlusion, float3 viewDirectionWS, float NoV, float3 lightDir, float3 lightColor)
             {
                 float roughness = perceptualRoughness * perceptualRoughness;
-                float NoL_Unclamped = dot(normalWS, lightDir);
-                float NoL = saturate(NoL_Unclamped);
                 
+                // 1. Roughness-Driven Diffuse Wrap
+                // Smooth materials get a standard dot product (wrap = 0). Rough materials get a softer wrap.
+                float wrap = perceptualRoughness * 0.5; 
+                float NoL_Unclamped = dot(normalWS, lightDir);
+                float NoL_Wrapped = saturate((NoL_Unclamped + wrap) / ((1.0 + wrap) * (1.0 + wrap)));
+                float3 diffuse = (diffuseColor / PI) * NoL_Wrapped;
+                
+                // Standard Specular setup
+                float NoL = saturate(NoL_Unclamped); // Standard NoL for the specular term
                 float3 H = SafeNormalize(lightDir + viewDirectionWS);
                 float NoH = saturate(dot(normalWS, H));
                 float VoH = saturate(dot(viewDirectionWS, H));
                 
-                // 1. Arkane Banded Diffuse
-                float bands = 3.0; // Number of distinct lighting steps
-                float feather = 0.15; // The softness of the transition between bands
+                // 2. Smoothed GGX NDF
+                // We calculate standard GGX, but smoothstep the output to prevent infinite micro-pixel spikes.
+                // This keeps specular highlights "chunky" and readable like brush strokes.
+                float rawNDF = NDF(roughness, NoH);
+                float smoothedNDF = smoothstep(0.0, 1.0, rawNDF * roughness * 4.0) * rawNDF; 
                 
-                float bandScale = NoL * bands;
-                float bandedNoL = (floor(bandScale) + smoothstep(0.0, feather, frac(bandScale))) / bands;
-                
-                // Blend a tiny amount of the original gradient back in (10%) 
-                // so the surface isn't entirely dead/flat within the bands
-                bandedNoL = lerp(bandedNoL, NoL, 0.1); 
-                
-                float3 diffuse = (diffuseColor / PI) * bandedNoL;
-                
-                // 2. Standard GGX Specular
-                // Keeping standard specular ensures metals and high-tech plastics still read correctly
-                float3 ndf = NDF(roughness, NoH);
                 float3 fresnel = Fresnel(f0, VoH, roughness);
                 float gsf = GSF(NoL, NoV, roughness);
-                float3 specular = (fresnel * ndf * gsf) / max((4.0 * NoL * NoV), 1e-7);
+                float3 specular = (fresnel * smoothedNDF * gsf) / max((4.0 * NoL * NoV), 1e-7);
                 
-                // Note: We don't multiply diffuse by NoL here because the banding already handles the falloff
+                // Note: We don't multiply diffuse by NoL here because the wrapped diffuse already handles it.
                 float3 finalDirectLight = diffuse + (specular * NoL);
                 
                 #if defined(_USE_GTBN)
@@ -75,7 +72,7 @@ Shader "Hidden/LoogaSoft/Lighting/Arkane"
             }
 
             #pragma fragment LoogaDeferredLightingFrag
-            #include "LoogaLightingPass.hlsl"
+            #include "Packages/com.loogasoft.loogalighting/Lighting Shaders/Includes/LoogaLightingPass.hlsl"
 
             ENDHLSL
         }

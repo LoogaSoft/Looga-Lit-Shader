@@ -1,4 +1,4 @@
-Shader "LoogaSoft/Lit Skin"
+Shader "LoogaSoft/Skin"
 {
     Properties
     {

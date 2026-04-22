@@ -3,14 +3,14 @@ using UnityEngine;
 
 namespace LoogaSoft.Lighting.Editor
 {
-    public class LoogaSkinShaderGUI : LoogaShaderGUIBase
+    // Inherit from your new base class
+    public class LoogaLitShaderGUI : LoogaShaderGUIBase 
     {
         public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] properties)
         {
             Styles();
             DrawLoogaSoftHeader();
 
-            // Fetch Properties
             MaterialProperty baseMap = FindProperty("_BaseMap", properties);
             MaterialProperty baseColor = FindProperty("_BaseColor", properties);
             MaterialProperty normalMap = FindProperty("_NormalMap", properties);
@@ -30,25 +30,19 @@ namespace LoogaSoft.Lighting.Editor
             MaterialProperty smoothnessSource = FindProperty("_SmoothnessTextureChannel", properties);
             MaterialProperty baseSmoothness = FindProperty("_BaseSmoothnessScale", properties);
             
-            MaterialProperty cavityMap = FindProperty("_CavityMap", properties);
-            MaterialProperty lobeMix = FindProperty("_LobeMix", properties);
-            MaterialProperty secondarySmoothness = FindProperty("_SecondarySmoothness", properties);
-            
             MaterialProperty ssssColor = FindProperty("_SubsurfaceColor", properties);
             MaterialProperty ssssWidth = FindProperty("_ScatterWidth", properties);
             
             MaterialProperty specHighlights = FindProperty("_SpecularHighlights", properties, false);
             MaterialProperty envReflections = FindProperty("_EnvironmentReflections", properties, false);
 
-            // 1. Surface Options Section
-            Section("Surface Options", "LoogaSkin_SurfaceOptions", true, () =>
+            Section("Surface Options", "LoogaLit_Surface", true, () =>
             {
                 materialEditor.TexturePropertySingleLine(new GUIContent("Base Map"), baseMap, baseColor);
                 materialEditor.TexturePropertySingleLine(new GUIContent("Normal Map"), normalMap, normalScale);
                 
                 EditorGUILayout.Space(2);
                 
-                // Mask Map Toggle
                 materialEditor.ShaderProperty(useMaskMap, "Use Mask Map");
                 
                 if (useMaskMap.floatValue > 0.5f)
@@ -75,28 +69,19 @@ namespace LoogaSoft.Lighting.Editor
                 EditorGUILayout.Space();
                 materialEditor.TextureScaleOffsetProperty(baseMap);
             });
-
-            // 2. Dual Lobe Specular Section
-            Section("Dual Lobe Specular", "LoogaSkin_DualLobe", true, () =>
-            {
-                materialEditor.TexturePropertySingleLine(new GUIContent("Cavity/Lobe Mask (R)"), cavityMap, lobeMix);
-                EditorGUI.indentLevel += 2;
-                materialEditor.ShaderProperty(secondarySmoothness, new GUIContent("Secondary Smoothness"));
-                EditorGUI.indentLevel -= 2;
-            });
             
-            // 3. Subsurface Scattering Section
-            Section("Subsurface Scattering", "LoogaSkin_SubsurfaceScattering", true, () =>
+            Section("Subsurface Scattering", "LoogaLit_SSSS", true, () =>
             {
                 materialEditor.ShaderProperty(ssssColor, "Subsurface Color");
                 materialEditor.ShaderProperty(ssssWidth, "Scatter Width");
             });
 
-            // 4. Advanced Options Section
-            Section("Advanced Options", "LoogaSkin_AdvancedOptions", false, () =>
+            Section("Advanced Options", "LoogaLit_Advanced", false, () =>
             {
                 if (specHighlights != null) materialEditor.ShaderProperty(specHighlights, "Specular Highlights");
                 if (envReflections != null) materialEditor.ShaderProperty(envReflections, "Environment Reflections");
+                
+                EditorGUILayout.Space();
                 materialEditor.EnableInstancingField();
                 materialEditor.RenderQueueField();
             });

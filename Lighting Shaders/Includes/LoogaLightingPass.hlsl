@@ -1,6 +1,8 @@
 #ifndef LOOGA_LIGHTING_PASS_INCLUDED
 #define LOOGA_LIGHTING_PASS_INCLUDED
 
+TEXTURE2D_X_HALF(_SSSSProfileTexture);
+
 half4 LoogaDeferredLightingFrag(Varyings input) : SV_Target
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
@@ -44,6 +46,12 @@ half4 LoogaDeferredLightingFrag(Varyings input) : SV_Target
     half occlusion = gbuffer1.a;
     half3 emission = gbuffer3.rgb;
     
+    // NEW: Sample the SSSS Profile
+    half4 ssssProfile = SAMPLE_TEXTURE2D_X_LOD(_SSSSProfileTexture, sampler_LinearClamp, uv, 0);
+    bool hasSSSS = ssssProfile.a > 0.001;
+    half3 ssssColor = ssssProfile.rgb;
+    float ssssWidth = ssssProfile.a * 5.0; // Unpack from 0-1
+    
     #if defined(_GBUFFER_NORMALS_OCT)
         half2 remappedOctNormalWS = Unpack888ToFloat2(gbuffer2.xyz);
         half2 octNormalWS = remappedOctNormalWS.xy * 2.0 - 1.0;
@@ -71,6 +79,11 @@ half4 LoogaDeferredLightingFrag(Varyings input) : SV_Target
 
     finalColor += EvaluateLighting(diffuseColor, f0, perceptualRoughness, normalWS, occlusion, viewDirectionWS, NoV, mainLight.direction, mainRadiance);
     
+    // NEW: Add Transmission for the Sun
+    if (hasSSSS)
+    {
+        finalColor += EvaluateTransmission(ssssColor, ssssWidth, mainLight.direction, viewDirectionWS, normalWS, mainLight.color * mainLight.distanceAttenuation, mainLight.shadowAttenuation);
+    }
     if (isDualLobe)
     {
         finalColor += EvaluateSecondaryGGXLobe(f0, secondaryRoughness, normalWS, mainLight.direction, viewDirectionWS, NoV, mainRadiance, lobeMix);

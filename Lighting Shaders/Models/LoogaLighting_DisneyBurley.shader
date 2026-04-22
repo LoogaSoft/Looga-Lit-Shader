@@ -17,7 +17,7 @@ Shader "Hidden/LoogaSoft/Lighting/DisneyBurley"
             #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
             #pragma multi_compile _ _USE_GTBN
             
-            #include "LoogaLightingHelpers.hlsl"
+            #include "Packages/com.loogasoft.loogalighting/Lighting Shaders/Includes/LoogaLightingHelpers.hlsl"
 
             float FD90(float roughness, float LoH)
             {
@@ -61,7 +61,7 @@ Shader "Hidden/LoogaSoft/Lighting/DisneyBurley"
             }
 
             #pragma fragment LoogaDeferredLightingFrag
-            #include "LoogaLightingPass.hlsl"
+            #include "Packages/com.loogasoft.loogalighting/Lighting Shaders/Includes/LoogaLightingPass.hlsl"
 
             ENDHLSL
         }
